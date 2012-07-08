@@ -11,7 +11,7 @@ function SlowBuffer(size) {
 SlowBuffer.byteLength = function(subject, encoding) {
   var length=0;
   for (var i=0, l=subject.length; i<l; ++i) {
-    length += utf8toHex(subject.charAt(i)).length;
+    length += utf8toHex(subject.charCodeAt(i)).length;
   }
 
   return length;
@@ -228,6 +228,7 @@ function Buffer(subject, encoding, offset) {
         break;
 
       case 'string':
+        type = "string";
         this.length = Buffer.byteLength(subject, encoding);
         break;
 
@@ -255,12 +256,13 @@ function Buffer(subject, encoding, offset) {
 
     // Treat array-ish objects as a byte array.
     if (isArrayIsh(subject)) {
+      console.log("arrayish")
       for (var i = 0; i < this.length; i++) {
         this.parent[i + this.offset] = subject[i];
       }
     } else if (type == 'string') {
       // We are a string
-      this.length = this.write(subject, 0, encoding);
+      /*this.length =*/ this.write(subject, 0, encoding);
     }
   }
 }
@@ -354,6 +356,7 @@ Buffer.prototype.write = function(string, offset, length, encoding) {
 
     case 'utf8':
     case 'utf-8':
+    console.log("UTF WRITING")
       ret = this.parent.utf8Write(string, this.offset + offset, length);
       break;
 
@@ -383,6 +386,13 @@ Buffer.prototype.write = function(string, offset, length, encoding) {
 
   return ret;
 };
+
+
+Buffer.prototype.toArrayBuffer = function(){
+  var typedArray = new Uint8Array(this.length);
+  typedArray.set(this.parent.subarray(this.offset, this.offset + this.length), 0);
+  return typedArray.buffer
+}
 
 // toString(encoding, start=0, end=buffer.length)
 Buffer.prototype.toString = function(encoding, start, end) {
@@ -500,7 +510,7 @@ Buffer.prototype.copy = function(target, target_start, start, end) {
     end = target.length - target_start + start;
   }
 
-  return this.parent.copy(target.parent,
+  return this.parent.set(target.parent,
                           target_start + target.offset,
                           start + this.offset,
                           end + this.offset);
@@ -1126,14 +1136,15 @@ Buffer.prototype.writeDoubleBE = function(value, offset, noAssert) {
 SlowBuffer.prototype.utf8Write = function(string, offset, length) {
   var buffer2, offsetLength = offset + length,
     buffer = this;
-
+  /*
   string2ArrayBuffer(string, function(buffer2) {
+    console.log(string, new Uint8Array(buffer2))
     for(var i=0, l=buffer2.length; i<l; ++i) {
       buffer.writeUInt8(buffer2[i], offset+i)
     }
   });
 
-  return; 
+  return; */
   for (var i=offset, l=string.length; i<l && i <offsetLength; ++i) {
     buffer.writeUtf8(string.charCodeAt(i), i);
   }
@@ -1158,28 +1169,31 @@ function utf8toHex(value) {
     while(j--)
       buffer.push(0x80 | ((value >>> (6 * j)) & 0x3F));
   }
+  // console.log('buffer', buffer, value)
   
   return new Uint8Array(buffer);
 }
 
 function string2ArrayBuffer(string, callback) {
-  var bb = new WebKitBlobBuilder();
-  bb.append(string);
+  //var bb = new WebKitBlobBuilder();
+  //bb.append(string);
+
   var f = new FileReader();
   f.onload = function(e) {
     callback(e.target.result);
   }
-  f.readAsArrayBuffer(bb.getBlob());
+  f.readAsArrayBuffer(new Blob([string]));
 }
 
 function arrayBuffer2String(buf, callback) {
-  var bb = new WebKitBlobBuilder();
-  bb.append(buf);
+  //var bb = new WebKitBlobBuilder();
+  //bb.append(buf);
   var f = new FileReader();
   f.onload = function(e) {
     callback(e.target.result)
   }
-  f.readAsText(bb.getBlob());
+  //f.readAsText(bb.getBlob());
+  f.readAsText(new Blob([buf]));
 }
 
 SlowBuffer.prototype.writeUtf8 = function(value, offset, noAssert) {
@@ -1209,6 +1223,8 @@ SlowBuffer.prototype.utf8Slice = function(start, end) {
   var string = arrayBuffer2String(this);
   return string.slice(start, end);
 };
+
+SlowBuffer.prototype.asciiWrite = SlowBuffer.prototype.utf8Write; //lets hope this hack works
 
 // SlowBuffer.prototype.asciiWrite(string, offset, length) {
 

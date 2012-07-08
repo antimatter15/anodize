@@ -2,7 +2,7 @@ define(["../crypto/crypto"], function(crypto){
 	console.log("crypto", crypto)
 	var exports = {};
 	
-exports.debug = false;
+exports.debug = true;
 
 
 
@@ -17,7 +17,7 @@ exports.setDebug = setDebug;
 
 function debug() {
 	if (exports.debug) {
-		console.log.apply(this, arguments);
+		console.log.apply(console, arguments);
 	}
 }
 exports.debug = debug;
@@ -76,7 +76,7 @@ function sha1(data, encoding) {
 	var hash = crypto.createHash('sha1');
 	hash.update(data);
 	if (!encoding || encoding === 'binary') {
-		return new Buffer(hash.digest('base64'), 'base64');
+		return new Buffer(hash.digest('hex'), 'hex');
 	} else {
 		return hash.digest(encoding);
 	}
