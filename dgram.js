@@ -1,11 +1,6 @@
 define(['./events', './util'],function(events, util){
 	var exports = {};
   var socket = chrome.socket || chrome.experimental.socket;
-  socket.ondata = function(result){
-    console.log("got a result now where does this go", result)
-  }
-//var io     = require('socket.io-client');
-//var Buffer = require('buffer').Buffer;
 
 function Socket(type, listener) {
   events.EventEmitter.call(this);
@@ -48,10 +43,15 @@ exports.createSocket = function(type, listener) {
 
 Socket.prototype._poll = function(){
   var self = this;
-  socket.read(this._socketID, function(result){
+  socket.recvFrom(this._socketID, function(result){
     console.log("read a result", result);
     if(result.resultCode > 0){
-      socket.ondata(result);
+      //socket.ondata(result);
+      self.emit('message', new Buffer(result.data), {
+        address: result.address,
+        port: result.port,
+        size: result.data.byteLength
+      })
     }
     self._poll();
   })
@@ -195,6 +195,8 @@ Socket.prototype.send = function(buffer, offset, length, port, address, callback
 
 Socket.prototype.close = function() {
   // this.sio.disconnect();
+  socket.disconnect(this._socketID);
+  socket.destroy(this._socketID);
   this.emit('close');
   this.removeAllListeners();
 };

@@ -1,10 +1,11 @@
 function Buffer(subject, encoding, offset){
 	var length;
 	if(offset) throw "Nonzero offsets not supported";
-
-	if(typeof subject == 'number'){
+	if(subject instanceof ArrayBuffer){
+		length = subject.byteLength;
+	}else if(typeof subject == 'number'){
 		length = subject;
-	}else if(subject.pop){ //array-like
+	}else if(subject.pop || subject instanceof Uint8Array){ //array-like
 		length = subject.length;
 	}else{
 		encoding = (encoding || 'utf8').toLowerCase().replace("-", '');
@@ -12,7 +13,9 @@ function Buffer(subject, encoding, offset){
 	}
 
 	this.length = length;
-	if(subject.pop){ //array-like
+	if(subject instanceof Uint8Array){
+		this.array = subject;
+	}else if(subject.pop || subject instanceof ArrayBuffer){ //array-like or arraybuffer
 		this.array = new Uint8Array(subject);	
 	}else{
 		this.array = new Uint8Array(length);	
@@ -21,6 +24,38 @@ function Buffer(subject, encoding, offset){
 		}
 	}
 	//console.log("creating buffer", arguments)
+}
+
+Buffer.prototype.slice = function(start, end){
+	return new Buffer(this.array.subarray(start, end))
+}
+
+Buffer.prototype.toString = function(encoding, start, end){
+	encoding = (encoding || 'utf8').toLowerCase().replace("-", '');
+	if(!end) end = this.length;
+	if(!start) start = 0;
+	
+	if(encoding == "ascii"){
+		var s = '';
+		for(var i = start; i < end; i++) 
+			s += String.fromCharCode(this.array[i]);
+		return s;
+	}else if(encoding == "utf8"){
+		var s = '';
+		for(var i = start; i < end; i++){
+			s += String.fromCharCode(this.array[i]);
+		}
+		return s;
+		return decodeURIComponent(escape( s));
+	}else{
+		throw "Other encodings not supported " + encoding;
+	}
+	console.log("toString", encoding, start, end);
+
+}
+
+Buffer.prototype.charAt = function charAt(i) {
+	return String.fromCharCode(this.array[i]);
 }
 
 Buffer.prototype.write = function(string, offset, encoding){
