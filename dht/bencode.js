@@ -34,6 +34,7 @@ function bdecode(str) {
 		str = new Buffer(str);
 	}
 	var dec = bparse(str, 0);
+	// console.log("BDECODED SOMETHING", str.length)
 	if(dec !== null && dec[1] === str.length)
 		return dec[0];
 	throw new Error("couldn't decode data");
@@ -45,7 +46,6 @@ exports.bdecode = bdecode;
 // all bparse* functions return an array in the form
 // [parsed object, remaining string to parse]
 function bparse(str, pos) {
-	// console.log('charAt', str.charAt(pos))
 	switch(str.charAt(pos)) {
 		case "d": return bparseDict(str, pos+1);
 		case "l": return bparseList(str, pos+1);
@@ -77,7 +77,6 @@ function bparseString(str, pos) {
 	str2 = str.toString('ascii', pos, colon);
 	if(isNum(str2)) {
 		len = parseInt(str2);
-		//console.log(colon+1, len, str.toString())
 		return [ copy(str, colon+1, len), colon+1+len ];
 	}
 	throw new Error("string length is not numeric");

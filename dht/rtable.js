@@ -26,7 +26,7 @@ RouteEntry.prototype.split = function split(own_id, own_ndx) {
 	old = this.live;
 	this.live = [];
 	for (i = 0, l = old.length; i < l; ++i) {
-		if (util.id_common(own_id, old[i]) > own_ndx) {
+		if (util.id_common(own_id, old[i].id) > own_ndx) {
 			nbucket.live.push(old[i]);
 		} else {
 			this.live.push(old[i]);
@@ -36,7 +36,7 @@ RouteEntry.prototype.split = function split(own_id, own_ndx) {
 	old = this.replacement;
 	this.replacement = [];
 	for (i = 0, l = old.length; i < l; ++i) {
-		if (util.id_common(own_id, old[i]) > own_ndx) {
+		if (util.id_common(own_id, old[i].id) > own_ndx) {
 			if (nbucket.live.length < consts.K) {
 				nbucket.live.push(old[i]);
 			} else {

@@ -14,11 +14,13 @@ function traverse_get_peers(traversal, node, callback) {
 		util.accumulate_nodes(traversal.nodes, traversal.target, { 'address': node.address, 'port': node.port, 'id': node.id, 'token': token }, consts.K);
 
 		values = response.r.values;
+		// console.log(response.r, values)
 		peers = [];
 		if (values && !Array.isArray(values)) return callback();
 		if (values) {
 			for (i = 0, l = values.length; i < l; ++i) {
 				peer = util.decode_peer_info(values[i]);
+				// console.log("CHECKING A PEER", values[i], peer)
 				if (!peer) continue;
 				traversal.peers.push(peer);
 				peers.push(peer);
@@ -27,6 +29,7 @@ function traverse_get_peers(traversal, node, callback) {
 		if (traversal.peer_callback && peers.length > 0) traversal.peer_callback(peers);
 
 		nodes = util.decode_node_info(response.r.nodes);
+		// console.log("nodes",nodes)
 		callback(nodes);
 	});
 }
@@ -74,6 +77,7 @@ function Traversal(dht, target, invokecb, callback) {
 exports.Traversal = Traversal;
 
 Traversal.prototype.start = function start() {
+	console.log("node queue", this.queue)
 	if (0 === this.queue.length) {
 		this.add_list(this.dht.rtable.lookup(this.target, consts.K, false));
 	}

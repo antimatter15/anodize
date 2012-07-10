@@ -115,7 +115,9 @@ exports.Node = Node;
 Node.prototype.find_transaction = function find_transaction(response) {
 	var tid;
 	if (!response.t || !(response.t instanceof Buffer)) return null;
+
 	tid = util.buffer_to_tid(response.t);
+	// console.log("transactid", tid)
 	if (-1 == tid) return null;
 	var t = this.transactions[tid];
 	if (!t) return null;
@@ -140,7 +142,9 @@ Node.prototype.recv = function recv(message) {
 		if (!id || !(id instanceof Buffer)) return null;
 		break;
 	case "r":
+		// console.log("got a response", message)
 		trans = this.find_transaction(message);
+		// console.log("foudn transatction", trans)
 		if (trans) trans.response(message);
 		break;
 	case "e":

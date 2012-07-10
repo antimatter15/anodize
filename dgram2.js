@@ -1,6 +1,75 @@
+
+var socket = chrome.socket || chrome.experimental.socket;
+socket.create("udp", {
+  //socket options though i can't find any
+}, function(createInfo){
+  console.log(createInfo.socketId, "socketid")
+  socket.bind(createInfo.socketId, '0.0.0.0', 13371, function(e){
+    console.log(e);
+    poll();
+  })
+  function poll(){
+    socket.recvFrom(createInfo.socketId, function(result){
+      console.log("got", result)
+      poll();
+    })
+
+  }
+})
+
+socket.connect(200, "127.0.0.1", 6127, function(result){
+  console.log('result', result);
+  var ab = new Uint8Array("hello world".split('').map(function(e){return e.charCodeAt(0)}))
+  socket.write(self._socketID, ab.buffer, function(sendResult){
+    console.debug("sendResult", sendResult);
+  })
+})
+
+socket.connect(200, "127.0.0.1", 6127, function(result){
+  console.log('result', result);
+  var ab = new Uint8Array("hello world".split('').map(function(e){return e.charCodeAt(0)}))
+  socket.write(200, ab.buffer, function(sendResult){
+    console.debug("sendResult", sendResult);
+    socket.disconnect(200)
+  })
+})
+
+
 define(['./events', './util'],function(events, util){
 	var exports = {};
   var socket = chrome.socket || chrome.experimental.socket;
+
+
+
+function Socket(type, listener){
+
+}
+
+Socket.prototype._poll = function(){
+
+}
+
+exports.createSocket = function(type, listener){
+	return new Socket(type, listener);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function Socket(type, listener) {
   events.EventEmitter.call(this);
@@ -8,7 +77,7 @@ function Socket(type, listener) {
   //init state variables
   this._listening = false;
   this._binding   = false;
-  this._connecting = false;
+  this._connected = false;
   this._socketID  = null;
   //type of socket 'udp4', 'udp6', 'unix_socket'
   this.type = type || 'udp4';
@@ -29,7 +98,6 @@ function Socket(type, listener) {
   }, function(createInfo){
 
   	self._socketID = createInfo.socketId;
-    self._poll();
     self.emit("created");
     console.log("created UDP socket")
   })
@@ -45,9 +113,8 @@ exports.createSocket = function(type, listener) {
 Socket.prototype._poll = function(){
   var self = this;
   socket.recvFrom(this._socketID, function(result){
-    
+    console.log("read a result", result);
     if(result.resultCode > 0){
-      console.log("read a result", result);
       //socket.ondata(result);
       self.emit('message', new Buffer(result.data), {
         address: result.address,
@@ -70,30 +137,16 @@ Socket.prototype._connect = function(port, address, callback) {
   }
   //TODO: check to see if port and address have changed 
   
-  //if(this._connected == false){
-    console.log(port, address)
-  if(self._connecting == true){
-    console.log("holding request")
-    return self.on("connected", function(){
-      self._connect(port, address, callback);
+  if(this._connected == false){
+    socket.connect(this._socketID, address, port, function(connectResult){
+      console.debug("connectResult", connectResult === 0) 
+      self._targetAddress = address;
+      self._targetPort = port;
+      self._connected = true;
+      self._poll();
+      callback();
     })
-  }
-  self._connecting = true;
-  if(port && address){
-  if(port != self._targetPort || address != self._targetAddress){
-      socket.disconnect(self._socketID)
-      socket.connect(self._socketID, address, port, function(connectResult){
-        console.debug("connectResult", connectResult === 0) 
-        self._targetAddress = address;
-        self._targetPort = port;
-        self._connecting = false;
-        self.emit('connected')
-        callback();
-      })
-    
-  }
   }else{
-
     if(port != self._targetPort || address != self._targetAddress){
       console.error("attempted change in port or address", address, port)
     }
@@ -191,11 +244,11 @@ Socket.prototype.send = function(buffer, offset, length, port, address, callback
   self._connect(port, address, function(){
     //console.log(buffer.toString('utf8').length)
     var ab = buffer.toArrayBuffer() //new Uint8Array(buffer.length);
-    //console.log(new Uint8Array(ab));
+    console.log(new Uint8Array(ab));
     //ab.set(buffer.parent.subarray(buffer.offset, buffer.offset + buffer.length), 0)
     //var ab = buffer.parent.buffer //(new Uint8Array(buffer)).buffer
     //var ab = (new Uint8Array("hello world".split('').map(function(e){return e.charCodeAt(0)}))).buffer;
-    //console.log([].slice.call((new Uint8Array(ab)), 0))
+    console.log([].slice.call((new Uint8Array(ab)), 0))
     socket.write(self._socketID, ab, function(sendResult){
       console.debug("sendResult", sendResult);
     })

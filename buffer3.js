@@ -1,3 +1,14 @@
+function Bluffer(){
+	Uint8Array.constructor.call(this, 32)
+}
+
+Bluffer.prototype = Uint8Array.prototype;
+Bluffer.prototype.constructor = Bluffer;
+
+
+//Bluffer.prototype = new Uint8Array(42)
+
+
 function Buffer(subject, encoding, offset){
 	var length;
 	if(offset) throw "Nonzero offsets not supported";
@@ -12,7 +23,6 @@ function Buffer(subject, encoding, offset){
 		length = Buffer.byteLength(subject, encoding)
 	}
 
-	//this.length = length;
 	if(subject instanceof Uint8Array){
 		this.array = subject;
 	}else if(subject.pop || subject instanceof ArrayBuffer){ //array-like or arraybuffer
@@ -24,14 +34,18 @@ function Buffer(subject, encoding, offset){
 		}
 	}
 
-	this.length = this.array.length;
-	// this.__proto__.__proto__ = Object.create(this.array);
+
+
+
+	//this.length = this.length;
+	this.__proto__.__proto__ = (this.array);
+
+	this.length = length;
 	//console.log("creating buffer", arguments)
 }
 
-
 Buffer.prototype.slice = function(start, end){
-	return new Buffer(this.array.subarray(start, end))
+	return new Buffer(this.subarray(start, end))
 }
 
 Buffer.prototype.toString = function(encoding, start, end){
@@ -42,12 +56,12 @@ Buffer.prototype.toString = function(encoding, start, end){
 	if(encoding == "ascii"){
 		var s = '';
 		for(var i = start; i < end; i++) 
-			s += String.fromCharCode(this.array[i]);
+			s += String.fromCharCode(this[i]);
 		return s;
 	}else if(encoding == "utf8"){
 		var s = '';
 		for(var i = start; i < end; i++){
-			s += String.fromCharCode(this.array[i]);
+			s += String.fromCharCode(this[i]);
 		}
 		return s;
 		return decodeURIComponent(escape( s));
@@ -58,21 +72,22 @@ Buffer.prototype.toString = function(encoding, start, end){
 
 }
 
-Buffer.prototype.charAt = function charAt(i) {
-	return String.fromCharCode(this.array[i]);
+Buffer.prototype.charAt = function(i) {
+	console.log('charAt', this[i])
+	return String.fromCharCode(this[i]);
 }
 
 Buffer.prototype.write = function(string, offset, encoding){
 	encoding = (encoding || 'utf8').toLowerCase().replace("-", '');
 	if(typeof string != 'string') throw "trying to write non-string";
 	if(encoding == 'utf8'){
-		this.array.set(utf8tobytes(string), offset);
+		this.set(utf8tobytes(string), offset);
 	}else if(encoding == 'ascii'){
-		this.array.set(asciitobytes(string), offset);
+		this.set(asciitobytes(string), offset);
 	}else if(encoding == 'hex'){
 		if(string.length % 2 != 0) throw "Unexpected non-integer length from hex";
 		for(var i = 0; i < string.length; i += 2){
-			this.array[offset + (i/2)] = parseInt(string.substr(i, 2), 16);
+			this[offset + (i/2)] = parseInt(string.substr(i, 2), 16);
 		}
 	}
 	//console.log("writing", arguments);
@@ -81,11 +96,11 @@ Buffer.prototype.write = function(string, offset, encoding){
 Buffer.prototype.copy = function(target, target_start, start, end) {
 	if(!(target instanceof Buffer)) throw "Target is not a buffer";
 	// console.log("copy", target_start, start, end)
-	target.array.set(this.array.subarray(start, end), target_start)
+	target.set(this.subarray(start, end), target_start)
 };
 
 Buffer.prototype.toArrayBuffer = function(){
-	return this.array.buffer;
+	return this.buffer;
 }
 
 Buffer.byteLength = function(string, encoding){

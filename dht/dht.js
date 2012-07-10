@@ -1,4 +1,4 @@
-define(["../dgram", "./util", "./consts", "./rtable", "./traverse", "./rpc", "./cache", "./bencode"], 
+define(["../dgram3", "./util", "./consts", "./rtable", "./traverse", "./rpc", "./cache", "./bencode"], 
 	function(dgram, util, consts, rtable, traverse, rpc, cache, bencode){
 var exports = {};
 // var dgram = require('dgram');
@@ -40,7 +40,7 @@ function DHT(port) {
 
 	this.cache = new cache.Cache();
 
-	this.version = "Node.JS";
+	this.version = "Anodize";
 
 	this.token = [ util.generate_id() ];
 	this.token_intervalID = setInterval(renew_token, 5*60*1000, this);
@@ -84,7 +84,7 @@ DHT.prototype._get_node = function _get_node(address, port, id) {
 DHT.prototype._send = function send(address, port, message) {
 	var buf;
 	message.v = this.version;
-	util.debug('Sending (to %s:%s): %j', address, port, message);
+	util.debug('Sending ', address, port, message);
 	// try {
 		buf = bencode.bencode(message);
 		this.socket4.send(buf, 0, buf.length, port, address);
@@ -102,7 +102,7 @@ DHT.prototype._recv = function recv(msg, rinfo) {
 		console.log("Couldn't decode message (from %s:%s) %j: %s", rinfo.address, rinfo.port, msg, e);
 		return;
 	}
-	util.debug('Receiving (from %j): %j', rinfo, data);
+	util.debug('Receiving ',rinfo.size, rinfo, data);
 	if (data) {
 		/* check message type */
 		if (!data.y || !(data.y instanceof Buffer)) return; /* ignore */
@@ -163,21 +163,25 @@ DHT.prototype.announce = function announce(info_hash, port) {
 }
 
 DHT.prototype._ping = function _ping(address, port, id, callback) {
+	// console.log("Sending a Ping")
 	var node = this._get_node(address, port, id);
 	node.query({ 'q': 'ping' }, callback);
 }
 
 DHT.prototype._find_node = function _find_node(address, port, id, target, callback) {
+	// console.log("sending Find Node")
 	var node = this._get_node(address, port, id);
 	node.query({ 'q': 'find_node', 'a': { 'target': target } }, callback);
 }
 
 DHT.prototype._get_peers = function _get_peers(address, port, id, info_hash, callback) {
+	// console.log("sending get peers")
 	var node = this._get_node(address, port, id);
 	node.query({ 'q': 'get_peers', 'a': { 'info_hash': info_hash } }, callback);
 }
 
 DHT.prototype._announce_peer = function _announce_peer(address, port, id, info_hash, myport, token, callback) {
+	// console.log("sending announce peer")
 	var node = this._get_node(address, port, id);
 	node.query({ 'q': 'announce_peer', 'a': { 'info_hash': info_hash, 'port': myport, 'token': token } }, callback);
 }

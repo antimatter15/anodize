@@ -30,7 +30,7 @@ function buf2hex(buf) {
 
 	s = "";
 	for (i = 0, l = this.length; i < l; ++i) {
-		c = this.array[i];
+		c = this[i];
 		if (c == 92) { /* \ */
 			s += "\\\\";
 		} else if (c >= 32 && c < 128) {
@@ -50,7 +50,7 @@ if (!Buffer.prototype.toJSON) {
 function hex2buf(s) {
 	var buf = new Buffer(s.length >> 1), pos, x;
 	for (pos = 0; pos < buf.length; ++pos) {
-		buf.array[pos] = parseInt(s.slice(2*pos, 2*pos+2), 16);
+		buf[pos] = parseInt(s.slice(2*pos, 2*pos+2), 16);
 	}
 	return buf;
 }
@@ -96,8 +96,8 @@ exports.id_dup = id_dup;
 function id_cmp(a, b) {
 	var i, x, y;
 	for (i = 0; i < 20; ++i) {
-		x = a.array[i];
-		y = b.array[i];
+		x = a[i];
+		y = b[i];
 		if (x < y) return -1;
 		if (x > y) return 1;
 	}
@@ -121,7 +121,7 @@ exports.id_eq = id_eq;
 function id_xor(a, b) {
 	var i, r = new Buffer(20);
 	for (i = 0; i < 20; i++) {
-		r.array[i] = a.array[i] ^ b.array[i];
+		r[i] = a[i] ^ b[i];
 	}
 	return r;
 }
@@ -131,8 +131,8 @@ function id_common(a, b) {
 	var i, j, x;
 
 	for (i = 0; i < 20; i++) {
-		if (a.array[i] !== b.array[i]) {
-			x = a.array[i] ^ b.array[i];
+		if (a[i] !== b[i]) {
+			x = a[i] ^ b[i];
 			i = i * 8;
 			for (j = 128; j > 0; j >>= 1, i++) {
 				if (x & j) return i;
@@ -176,7 +176,7 @@ exports.tid_to_buffer = tid_to_buffer;
 
 function buffer_to_tid(b) {
 	if (b.length !== 2) return -1;
-	return b.array[0] * 256 + b.array[1];
+	return b[0] * 256 + b[1];
 }
 exports.buffer_to_tid = buffer_to_tid;
 
@@ -211,12 +211,10 @@ function decode_node_info(nodes) {
 	l = [];
 	for (i = 0; i < nodes.length; i += 26) {
 		id = buf_dup(nodes.slice(i, i+20));
-		address = [ nodes.array[i+20], nodes.array[i+21], nodes.array[i+22], nodes.array[i+23] ].join('.');
-		port = nodes.array[i+24] * 256 + nodes.array[i+25];
+		address = [ nodes[i+20], nodes[i+21], nodes[i+22], nodes[i+23] ].join('.');
+		port = nodes[i+24] * 256 + nodes[i+25];
 		l.push({ address: address, port: port, id: id });
 	}
-
-	// console.log(l)
 
 	return l;
 }
@@ -230,8 +228,8 @@ function encode_node_info(nodes) {
 		n = nodes[i];
 		n.id.copy(buf, pos, 0, 20);
 		a = n.address.split('.');
-		buf.array[pos+20] = a[0] | 0; buf.array[pos+21] = a[1] | 0; buf.array[pos+22] = a[2] | 0; buf.array[pos+23] = a[3] | 0;
-		buf.array[pos+24] = (n.port/256) | 0; buf.array[pos+25] = (n.port % 256);
+		buf[pos+20] = a[0] | 0; buf[pos+21] = a[1] | 0; buf[pos+22] = a[2] | 0; buf[pos+23] = a[3] | 0;
+		buf[pos+24] = (n.port/256) | 0; buf[pos+25] = (n.port % 256);
 	}
 
 	return buf;
@@ -245,9 +243,8 @@ function decode_peer_info(peer) {
 
 	if (peer.length !== 6) return null;
 
-	address = [ peer.array[0], peer.array[1], peer.array[2], peer.array[3] ].join('.');
-	port = peer.array[4] * 256 + peer.array[5];
-	//console.log("DECPERINFO", address, port)
+	address = [ peer[0], peer[1], peer[2], peer[3] ].join('.');
+	port = peer[4] * 256 + peer[5];
 	return { address: address, port: port };
 }
 exports.decode_peer_info = decode_peer_info;
@@ -257,8 +254,8 @@ function encode_peer_info(peer) {
 
 	buf = new Buffer(6);
 	a = peer.address.split('.');
-	buf.array[0] = a[0] | 0; buf.array[1] = a[1] | 0; buf.array[2] = a[2] | 0; buf.array[3] = a[3] | 0;
-	buf.array[4] = (n.port/256) | 0; buf.array[5] = (n.port % 256);
+	buf[0] = a[0] | 0; buf[1] = a[1] | 0; buf[2] = a[2] | 0; buf[3] = a[3] | 0;
+	buf[4] = (n.port/256) | 0; buf[5] = (n.port % 256);
 
 	return buf;
 }

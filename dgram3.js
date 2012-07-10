@@ -1,27 +1,31 @@
 define(['./events', './util'],function(events, util){
 	var exports = {};
   var socket = chrome.socket || chrome.experimental.socket;
+  
+  var CONNECTION_CLEANUP = 10 * 1000 * 3; //10000 or below will lead to significantly fewer peers
+  var CLEANUP_INTERVAL = 1 * 1000;
 
 function Socket(type, listener) {
+  console.log("Initializing Datagram V3")
   events.EventEmitter.call(this);
-
+SUPERSOCKET = this;
   //init state variables
   this._listening = false;
   this._binding   = false;
   this._connecting = false;
   this._socketID  = null;
+  this._hosts     = {};
   //type of socket 'udp4', 'udp6', 'unix_socket'
   this.type = type || 'udp4';
   this._port = 0;
 
-  this._targetAddress = null;
-  this._targetPort = null;
+  this._lastCleanup = +new Date;
 
   //listener
   if (typeof listener === 'function')
     this.on('message', listener);
 
-  console.log("Creating UDP socket");
+  // console.log("Creating UDP socket");
 
   var self = this;
   socket.create("udp", {
@@ -31,7 +35,7 @@ function Socket(type, listener) {
   	self._socketID = createInfo.socketId;
     self._poll();
     self.emit("created");
-    console.log("created UDP socket")
+    // console.log("created UDP socket")
   })
   // this.sio = io.connect(host, io_options);
 }
@@ -42,64 +46,104 @@ exports.createSocket = function(type, listener) {
   return new Socket(type, listener);
 };
 
-Socket.prototype._poll = function(){
+Socket.prototype._cleanup = function(){
   var self = this;
-  socket.recvFrom(this._socketID, function(result){
-    
-    if(result.resultCode > 0){
-      console.log("read a result", result);
-      //socket.ondata(result);
-      self.emit('message', new Buffer(result.data), {
-        address: result.address,
-        port: result.port,
-        size: result.data.byteLength
-      })
+
+  var sorted = Object.keys(self._hosts).sort(function(a, b){
+    return self._hosts[a].lastUsed - self._hosts[b].lastUsed;
+  });
+  console.log("Number of hosts: ", sorted.length)
+  if(sorted.length > 0){
+      for(var host in self._hosts){
+      if(new Date - self._hosts[host].lastUsed > CONNECTION_CLEANUP){
+        //recycle
+        console.log("removing a host", host)
+        socket.disconnect(self._hosts[host].id)
+        socket.destroy(self._hosts[host].id)
+        delete self._hosts[host];
+      }
     }
-    self._poll();
-  })
+    
+
+    setTimeout(function(){
+      self._cleanup()
+    }, CLEANUP_INTERVAL);
+  }
+  /*
+  for(var host in self._hosts){
+    if(new Date - self._hosts[host].lastUsed > CONNECTION_CLEANUP){
+      console.log("removing a host", host)
+      socket.disconnect(self._hosts[host].id)
+      socket.destroy(self._hosts[host].id)
+      delete self._hosts[host];
+    }
+  }
+  if(Object.keys(self._hosts).length > 0){
+    setTimeout(self._cleanup, CLEANUP_INTERVAL);
+  }
+  */
+}
+
+Socket.prototype._poll = function(host){
+  var self = this;
+  if(host in self._hosts && self._hosts[host].status == "connected"){
+    socket.recvFrom(self._hosts[host].id, function(result){
+      if(result.resultCode > 0){
+        self._hosts[host].lastUsed = +new Date;
+        // console.log("read a result", result);
+        self.emit('message', new Buffer(result.data), {
+          address: result.address,
+          port: result.port,
+          size: result.data.byteLength
+        })
+      }
+      self._poll(host);
+    })
+  }
+  // self._cleanup();
 }
 
 Socket.prototype._connect = function(port, address, callback) {
   var self = this;
-  if(this._socketID === null){
-    var args = arguments;
-    console.log("can't send yet, waiting till udp socket created")
-    return self.on("created", function(){
-      self._connect.apply(self, args);
-    })
-  }
+  var host = address + '/' + port;
   //TODO: check to see if port and address have changed 
-  
-  //if(this._connected == false){
-    console.log(port, address)
-  if(self._connecting == true){
-    console.log("holding request")
-    return self.on("connected", function(){
-      self._connect(port, address, callback);
+  if(host in self._hosts){
+    self._hosts[host].lastUsed = +new Date;
+    if(self._hosts[host].status == "connecting"){
+      // console.log("holding back a connection request")
+      self._hosts[host].callbacks.push(callback)
+      return;
+    }else{
+      callback(self._hosts[host].id);
+    }
+  }else{
+    // console.log("creating a new UDP for ", host)
+
+    self._hosts[host] = {
+      status: "connecting",
+      id: -1,
+      callbacks: [callback],
+      creation: +new Date,
+      lastUsed: +new Date
+    };
+    if(Object.keys(self._hosts).length == 1){
+      self._cleanup();
+    }
+    socket.create("udp", {}, function(createInfo){
+      // console.log("created new udp", createInfo, host)
+      socket.connect(createInfo.socketId, address, port, function(connectResult){
+        // console.log("connecting new udp", connectResult)
+        self._hosts[host].id = createInfo.socketId;
+        self._hosts[host].status = 'connected';
+        self._hosts[host].lastUsed = +new Date;
+        self._poll(host); //set up polling
+        for(var i = 0; i < self._hosts[host].callbacks.length; i++){
+          // console.log("running callback", i)
+          self._hosts[host].callbacks[i](self._hosts[host].id);
+        }
+      })
     })
   }
-  self._connecting = true;
-  if(port && address){
-  if(port != self._targetPort || address != self._targetAddress){
-      socket.disconnect(self._socketID)
-      socket.connect(self._socketID, address, port, function(connectResult){
-        console.debug("connectResult", connectResult === 0) 
-        self._targetAddress = address;
-        self._targetPort = port;
-        self._connecting = false;
-        self.emit('connected')
-        callback();
-      })
-    
-  }
-  }else{
-
-    if(port != self._targetPort || address != self._targetAddress){
-      console.error("attempted change in port or address", address, port)
-    }
-    callback();
-  }
-  
 };
 
 Socket.prototype.bind = function(port, address) {
@@ -123,7 +167,7 @@ Socket.prototype.bind = function(port, address) {
   port = port || 0;
 
   this._port = port;
-  console.log("binding", this._socketID, address, port)
+  // console.log("binding", this._socketID, address, port)
   socket.bind(this._socketID, address, port, function(result){
     //console.log("I don't know what this integer result means after binding", result);
     if(result < 0){
@@ -172,14 +216,9 @@ Socket.prototype.bind = function(port, address) {
 
 Socket.prototype.send = function(buffer, offset, length, port, address, callback) {
   var self = this;
-  console.log("UDP dgrams send", arguments)
-  
-
-
+  // console.log("UDP dgrams send", arguments)
   //accept buffer as string
   buffer = (typeof buffer === 'string') ? new Buffer(buffer) : buffer;
-
-
   //emit directly exception if any
   if (offset >= buffer.length)
     throw new Error('Offset into buffer too large');
@@ -188,7 +227,7 @@ Socket.prototype.send = function(buffer, offset, length, port, address, callback
 
   //console.log("what is this buff", buffer)
 
-  self._connect(port, address, function(){
+  self._connect(port, address, function(socketId){
     //console.log(buffer.toString('utf8').length)
     var ab = buffer.toArrayBuffer() //new Uint8Array(buffer.length);
     //console.log(new Uint8Array(ab));
@@ -196,8 +235,8 @@ Socket.prototype.send = function(buffer, offset, length, port, address, callback
     //var ab = buffer.parent.buffer //(new Uint8Array(buffer)).buffer
     //var ab = (new Uint8Array("hello world".split('').map(function(e){return e.charCodeAt(0)}))).buffer;
     //console.log([].slice.call((new Uint8Array(ab)), 0))
-    socket.write(self._socketID, ab, function(sendResult){
-      console.debug("sendResult", sendResult);
+    socket.write(socketId, ab, function(sendResult){
+      // console.debug("sendResult", sendResult);
     })
   })
 
